@@ -58,7 +58,7 @@ public abstract class TeachingDevice
     // Ghi đè ToString để trả về thông tin của thiết bị
     public override string ToString()
     {
-        return $"Mã thiết bị: {DeviceId}\nTên thiết bị: {DeviceName}\nGiá mua: {PurchasePrice}\nNăm đưa vào sử dụng: {PurchaseYear}\nTrạng thái hoạt động: {Status}\n";
+        return $"Mã thiết bị: {DeviceId}\nTên thiết bị: {DeviceName}\nNăm đưa vào sử dụng: {PurchaseYear}\nTrạng thái hoạt động: {Status}\n";
     }
     #endregion
 }
@@ -179,7 +179,7 @@ public class BorrowItem
         DateTime borrowedDate, 
         DateTime dueDate,
         int fromPeriod,
-        int toPeriod,
+        int toPeriod
     )
     {
         if (device == null)
@@ -201,6 +201,13 @@ public class BorrowItem
     #region public method
     public void Return(DateTime returnedDate)
     {
+        if (IsReturned)
+            throw new ArgumentException("Thiết bị đã được trả trước đó.");
+        if (returnedDate < BorrowedDate)
+            throw new InvalidBorrowPeriodException("Không thể trả vào trước ngày mượn.", Device.DeviceId, (int)(DueDate - BorrowedDate).TotalDays, Device.MaxBorrowDays);
+        IsReturned = true;
+        ReturnedDate = returnedDate;
+        Device.Status = DeviceStatus.Available;
         
     }
     #endregion
@@ -208,5 +215,48 @@ public class BorrowItem
 
 public class BorrowingSlip
 {
-    
+    public string SlipId { get; }
+    public IBorrower Borrower { get; }
+    public string TeachingRoom { get; }
+    public DateTime BorrowedDate { get; }
+    private readonly List<BorrowItem> _items = new List<BorrowItem>();
+    public IReadOnlyList<BorrowItem> Items => _items.AsReadOnly();
+
+    #region Constructor
+    public BorrowingSlip(
+        string id,
+        IBorrower borrower,
+        string teachingRoom,
+        DateTime borrowedDate
+    )
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            throw new ArgumentException("Mã phiếu mượn không được rỗng.");
+        if (borrower == null)
+            throw new ArgumentNullException("Người mượn không được null.");
+        if (string.IsNullOrWhiteSpace(teachingRoom))
+            throw new ArgumentException("Tên phòng dạy không được để trống.");
+        
+        SlipId = id;
+        Borrower = borrower;
+        TeachingRoom = teachingRoom;
+        BorrowedDate = borrowedDate;
+    }
+    #endregion
+
+    #region Public method
+    public void AddDevice(TeachingDevice device, int borrowDays);
+    public decimal ReturnDevice(string deviceId, DateTime returnedDate);
+    public decimal CalculateTotalLateFee();
+
+    #endregion
+
+
+    #region Additional method
+    private void ValidateAddDevice(TeachingDevice device, int borrowDays)
+    {
+        
+    }
+
+    #endregion
 }
