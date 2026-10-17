@@ -4,7 +4,8 @@ MSSV: 202419018
 *************************/
 
 using System;
-using System.Reflection.Metadata;
+using System.Collections.Generic;
+using System.Linq;
 
 public enum DeviceStatus
 {
@@ -15,11 +16,11 @@ public enum DeviceStatus
 
 public abstract class TeachingDevice
 {
-    public string DeviceId {get;}
-    protected string DeviceName {get; set;}
-    protected int PurchaseYear {get; set;}
-    public DeviceStatus Status {get; set;}
-    public int MaxBorrowDays {get;}
+    public string DeviceId { get; }
+    protected string DeviceName { get; set; }
+    protected int PurchaseYear { get; set; }
+    public DeviceStatus Status { get; set; }
+    public int MaxBorrowDays { get; }
 
     #region Constructor
     public TeachingDevice(
@@ -32,10 +33,10 @@ public abstract class TeachingDevice
     {
         if (string.IsNullOrWhiteSpace(id))
             throw new ArgumentException("Mã thiết bị không được rỗng.");
-        if (CalculateYearsOfUse() <= 0)
+        if (CalculateYearsOfUse() < 0)
             throw new ArgumentOutOfRangeException("Năm đưa vào sử dụng không được lớn hơn năm hiện tại.");
         if (maxBorrowDays <= 0)
-            throw new ArgumentOutOfRangeException("Số ngày mượn tối đa phải dương");
+            throw new ArgumentOutOfRangeException("Số ngày mượn tối đa phải dương.");
 
         DeviceId = id;
         DeviceName = name;
@@ -63,7 +64,7 @@ public abstract class TeachingDevice
     #endregion
 }
 
-public class AirConditionerRemote: TeachingDevice
+public class AirConditionerRemote : TeachingDevice
 {
     public AirConditionerRemote(string id, string name, int year, DeviceStatus status, int maxBorrowDays)
     : base(id, name, year, status, maxBorrowDays)
@@ -71,21 +72,20 @@ public class AirConditionerRemote: TeachingDevice
     }
 }
 
-
-public class Microphone: TeachingDevice
+public class Microphone : TeachingDevice
 {
     public Microphone(string id, string name, int year, DeviceStatus status, int maxBorrowDays)
     : base(id, name, year, status, maxBorrowDays)
     {
-    }    
+    }
 }
 
-public class ProjectorRemote: TeachingDevice
+public class ProjectorRemote : TeachingDevice
 {
     public ProjectorRemote(string id, string name, int year, DeviceStatus status, int maxBorrowDays)
     : base(id, name, year, status, maxBorrowDays)
     {
-    }   
+    }
 }
 
 public class ClassRoom
@@ -99,29 +99,30 @@ public class ClassRoom
     public ClassRoom(string id, string name, int capacity)
     {
         if (string.IsNullOrWhiteSpace(id))
-            throw new ArgumentException("Mã phòng thí nghiệm không được để trống");
+            throw new ArgumentException("Mã phòng thí nghiệm không được để trống.");
         if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Tên phòng thí nghiệm không được để trống");
+            throw new ArgumentException("Tên phòng thí nghiệm không được để trống.");
         if (capacity <= 0)
-            throw new ArgumentOutOfRangeException("Sức chứa phải dương");
+            throw new ArgumentOutOfRangeException("Sức chứa phải dương.");
         RoomId = id;
         RoomName = name;
         Capacity = capacity;
-        Devices = new List<TeachingDevice>();    
+        Devices = new List<TeachingDevice>();
     }
+    #endregion
 }
 
 public interface IBorrower
-{    
+{
     string BorrowerId { get; }
     string FullName { get; }
     int GetMaximumDevices();
 }
 
-public class Lecturer: IBorrower
+public class Lecturer : IBorrower
 {
-    public string BorrowerId {get;}
-    public string FullName {get;}
+    public string BorrowerId { get; }
+    public string FullName { get; }
 
     #region Constructor
     public Lecturer(string id, string name)
@@ -137,15 +138,16 @@ public class Lecturer: IBorrower
     public int GetMaximumDevices()
     {
         return 3;
-    }    
+    }
     #endregion
 }
 
-public class TeachingAssistant: IBorrower
+public class TeachingAssistant : IBorrower
 {
-    public string BorrowerId {get;}
-    public string FullName {get;}
-    
+    public string BorrowerId { get; }
+    public string FullName { get; }
+
+    #region Constructor
     public TeachingAssistant(string id, string name)
     {
         if (string.IsNullOrWhiteSpace(id))
@@ -159,35 +161,35 @@ public class TeachingAssistant: IBorrower
     public int GetMaximumDevices()
     {
         return 2;
-    }    
+    }
     #endregion
 }
 
 public class BorrowItem
 {
-    public TeachingDevice Device {get;}
-    public DateTime BorrowedDate {get;}
-    public DateTime DueDate {get;}
-    public int FromPeriod {get; set;}
-    public int ToPeriod {get; set;}
-    public DateTime? ReturnedDate {get; private set;}
-    public bool IsReturned {get; private set;}
+    public TeachingDevice Device { get; }
+    public DateTime BorrowedDate { get; }
+    public DateTime DueDate { get; }
+    public int FromPeriod { get; set; }
+    public int ToPeriod { get; set; }
+    public DateTime? ReturnedDate { get; private set; }
+    public bool IsReturned { get; private set; }
 
     #region Constructor
     public BorrowItem(
         TeachingDevice device,
-        DateTime borrowedDate, 
+        DateTime borrowedDate,
         DateTime dueDate,
         int fromPeriod,
         int toPeriod
     )
     {
         if (device == null)
-            throw new ArgumentNullException("Thiết bị không thể trống");
+            throw new ArgumentNullException(nameof(device), "Thiết bị không thể trống.");
         if (dueDate < borrowedDate)
-            throw new ArgumentOutOfRangeException("Ngày hẹn trả không thể xảy ra trước ngày mượn.");
+            throw new BorrowingException("Ngày hẹn trả không thể xảy ra trước ngày mượn.");
         if (fromPeriod > toPeriod)
-            throw new ArgumentOutOfRangeException("Tiết trả không thể xảy ra trước tiết mượn");
+            throw new BorrowingException("Tiết trả không thể xảy ra trước tiết mượn.");
         Device = device;
         BorrowedDate = borrowedDate;
         DueDate = dueDate;
@@ -202,12 +204,12 @@ public class BorrowItem
     public void Return(DateTime returnedDate)
     {
         if (IsReturned)
-            throw new ArgumentException("Thiết bị đã được trả trước đó.");
+            throw new BorrowingException("Thiết bị đã được trả trước đó.");
         if (returnedDate < BorrowedDate)
-            throw new ArgumentOutOfRangeException("Không thể trả vào trước ngày mượn.");
+            throw new BorrowingException("Không thể trả vào trước ngày mượn.");
         ReturnedDate = returnedDate;
+        IsReturned = true;
         Device.Status = DeviceStatus.Available;
-        
     }
     #endregion
 }
@@ -232,10 +234,10 @@ public class BorrowingSlip
         if (string.IsNullOrWhiteSpace(id))
             throw new ArgumentException("Mã phiếu mượn không được rỗng.");
         if (borrower == null)
-            throw new ArgumentNullException("Người mượn không được null.");
+            throw new ArgumentNullException(nameof(borrower), "Người mượn không được null.");
         if (string.IsNullOrWhiteSpace(teachingRoom))
             throw new ArgumentException("Tên phòng dạy không được để trống.");
-        
+
         SlipId = id;
         Borrower = borrower;
         TeachingRoom = teachingRoom;
@@ -247,19 +249,19 @@ public class BorrowingSlip
     public void AddDevice(TeachingDevice device, int borrowDays, int fromPeriod = 1, int toPeriod = 12)
     {
         ValidateAddDevice(device, borrowDays);
-        
+
         DateTime dueDate = BorrowedDate.AddDays(borrowDays);
-        var item = new BorrowItem(device, BorrowedDate,dueDate, fromPeriod, toPeriod);
+        var item = new BorrowItem(device, BorrowedDate, dueDate, fromPeriod, toPeriod);
         device.Status = DeviceStatus.Borrowed;
 
         _items.Add(item);
-
     }
+
     public decimal ReturnDevice(string deviceId, DateTime returnedDate)
     {
         if (string.IsNullOrWhiteSpace(deviceId))
-            throw new ArgumentException("Mã thiết bị không được để trống");
-        
+            throw new ArgumentException("Mã thiết bị không được để trống.");
+
         // Kiểm tra có mã thiết bị tương ứng trong danh sách hay không
         var item = _items.FirstOrDefault(i => i.Device.DeviceId.Equals(deviceId, StringComparison.OrdinalIgnoreCase));
         if (item == null)
@@ -269,10 +271,11 @@ public class BorrowingSlip
             throw new DeviceAlreadyReturnedException("Thiết bị đã được trả trước đó.", deviceId, SlipId);
         // Thực hiện trả
         item.Return(returnedDate);
-        
+
         // Tính phí trả muộn với thiết bị
         return CalculateLateFeeForItem(item);
     }
+
     public decimal CalculateTotalLateFee()
     {
         decimal totalFee = 0m;
@@ -282,20 +285,18 @@ public class BorrowingSlip
         }
         return totalFee;
     }
-
     #endregion
-
 
     #region Additional method
     // Kiểm tra đầu vào trước khi thêm thiết bị vào phiếu
     private void ValidateAddDevice(TeachingDevice device, int borrowDays)
     {
         if (device == null)
-            throw new ArgumentNullException("Thiết bị không được null.");
+            throw new ArgumentNullException(nameof(device), "Thiết bị không được null.");
         if (borrowDays <= 0)
             throw new InvalidBorrowPeriodException("Số ngày mượn phải là số dương.", device.DeviceId, borrowDays, device.MaxBorrowDays);
         if (borrowDays > device.MaxBorrowDays)
-            throw new InvalidBorrowPeriodException("Không thể mượn quá giới hạn ngày mượn của thiết bị", device.DeviceId, borrowDays, device.MaxBorrowDays);
+            throw new InvalidBorrowPeriodException("Không thể mượn quá giới hạn ngày mượn của thiết bị.", device.DeviceId, borrowDays, device.MaxBorrowDays);
         // Kiểm tra trùng lặp mã
         bool isDuplicate = _items.Any(i => i.Device.DeviceId.Equals(device.DeviceId, StringComparison.OrdinalIgnoreCase));
         if (isDuplicate)
@@ -305,13 +306,13 @@ public class BorrowingSlip
         if (device.Status != DeviceStatus.Available)
             throw new DeviceUnavailableException("Thiết bị hiện tại không thể mượn.", device.DeviceId, device.Status);
     }
-    
+
     private decimal CalculateLateFeeForItem(BorrowItem item)
     {
         if (!item.ReturnedDate.HasValue || item.ReturnedDate.Value <= item.DueDate)
             return 0m;
-        
-        int lateDays = (item.ReturnedDate.Value - item.BorrowedDate).Days;
+
+        int lateDays = (item.ReturnedDate.Value.Date - item.DueDate.Date).Days;
         // Giả sử tiền phạt trả muộn mỗi ngày là 50k VNĐ
         decimal dailyLateFee = 50000m;
 
