@@ -27,7 +27,7 @@ public class DeviceUnavailableException : BorrowingException
 
     public DeviceUnavailableException(
         string message,
-        Exception innerException,
+        Exception? innerException,
         string id,
         DeviceStatus status
     )
@@ -35,6 +35,15 @@ public class DeviceUnavailableException : BorrowingException
     {
         DeviceId = id;
         CurrentStatus = status;
+    }
+
+    public DeviceUnavailableException(
+        string message,
+        string id,
+        DeviceStatus status        
+    )
+    : this(message, null, id, status)
+    {
     }
 }
 
