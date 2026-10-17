@@ -204,8 +204,7 @@ public class BorrowItem
         if (IsReturned)
             throw new ArgumentException("Thiết bị đã được trả trước đó.");
         if (returnedDate < BorrowedDate)
-            throw new InvalidBorrowPeriodException("Không thể trả vào trước ngày mượn.", Device.DeviceId, (int)(DueDate - BorrowedDate).TotalDays, Device.MaxBorrowDays);
-        IsReturned = true;
+            throw new ArgumentOutOfRangeException("Không thể trả vào trước ngày mượn.");
         ReturnedDate = returnedDate;
         Device.Status = DeviceStatus.Available;
         
@@ -245,18 +244,78 @@ public class BorrowingSlip
     #endregion
 
     #region Public method
-    public void AddDevice(TeachingDevice device, int borrowDays);
-    public decimal ReturnDevice(string deviceId, DateTime returnedDate);
-    public decimal CalculateTotalLateFee();
+    public void AddDevice(TeachingDevice device, int borrowDays, int fromPeriod = 1, int toPeriod = 12)
+    {
+        ValidateAddDevice(device, borrowDays);
+        
+        DateTime dueDate = BorrowedDate.AddDays(borrowDays);
+        var item = new BorrowItem(device, BorrowedDate,dueDate, fromPeriod, toPeriod);
+        device.Status = DeviceStatus.Borrowed;
+
+        _items.Add(item);
+
+    }
+    public decimal ReturnDevice(string deviceId, DateTime returnedDate)
+    {
+        if (string.IsNullOrWhiteSpace(deviceId))
+            throw new ArgumentException("Mã thiết bị không được để trống");
+        
+        // Kiểm tra có mã thiết bị tương ứng trong danh sách hay không
+        var item = _items.FirstOrDefault(i => i.Device.DeviceId.Equals(deviceId, StringComparison.OrdinalIgnoreCase));
+        if (item == null)
+            throw new DeviceNotInSlipException("Thiết bị không trong phiếu mượn.", deviceId, SlipId);
+        // Kiểm tra thiết bị đã được trả trước đó chưa
+        if (item.IsReturned)
+            throw new DeviceAlreadyReturnedException("Thiết bị đã được trả trước đó.", deviceId, SlipId);
+        // Thực hiện trả
+        item.Return(returnedDate);
+        
+        // Tính phí trả muộn với thiết bị
+        return CalculateLateFeeForItem(item);
+    }
+    public decimal CalculateTotalLateFee()
+    {
+        decimal totalFee = 0m;
+        foreach (var item in _items)
+        {
+            totalFee += CalculateLateFeeForItem(item);
+        }
+        return totalFee;
+    }
 
     #endregion
 
 
     #region Additional method
+    // Kiểm tra đầu vào trước khi thêm thiết bị vào phiếu
     private void ValidateAddDevice(TeachingDevice device, int borrowDays)
     {
-        
+        if (device == null)
+            throw new ArgumentNullException("Thiết bị không được null.");
+        if (borrowDays <= 0)
+            throw new InvalidBorrowPeriodException("Số ngày mượn phải là số dương.", device.DeviceId, borrowDays, device.MaxBorrowDays);
+        if (borrowDays > device.MaxBorrowDays)
+            throw new InvalidBorrowPeriodException("Không thể mượn quá giới hạn ngày mượn của thiết bị", device.DeviceId, borrowDays, device.MaxBorrowDays);
+        // Kiểm tra trùng lặp mã
+        bool isDuplicate = _items.Any(i => i.Device.DeviceId.Equals(device.DeviceId, StringComparison.OrdinalIgnoreCase));
+        if (isDuplicate)
+            throw new DuplicateDeviceException("Thiết bị đã có trong phiếu mượn.", device.DeviceId, SlipId);
+        if (_items.Count >= Borrower.GetMaximumDevices())
+            throw new BorrowLimitExceededException("Người mượn đã đạt tối đa số thiết bị có thể mượn.", Borrower.BorrowerId, Borrower.GetMaximumDevices());
+        if (device.Status != DeviceStatus.Available)
+            throw new DeviceUnavailableException("Thiết bị hiện tại không thể mượn.", device.DeviceId, device.Status);
     }
+    
+    private decimal CalculateLateFeeForItem(BorrowItem item)
+    {
+        if (!item.ReturnedDate.HasValue || item.ReturnedDate.Value <= item.DueDate)
+            return 0m;
+        
+        int lateDays = (item.ReturnedDate.Value - item.BorrowedDate).Days;
+        // Giả sử tiền phạt trả muộn mỗi ngày là 50k VNĐ
+        decimal dailyLateFee = 50000m;
 
+        return lateDays * dailyLateFee;
+    }
     #endregion
 }
