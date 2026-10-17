@@ -98,7 +98,6 @@ class Program
         catch (BorrowLimitExceededException ex)
         {
             Console.WriteLine($"{ex.Message} (Người mượn: {ex.BorrowerId}, Số lượng mượn tối đa: {ex.MaximumDevices})");
-            Console.WriteLine($"Thiết bị được thêm gần nhất trong phiếu mượn sẽ bị xóa.");
         }
 
         // 3. Thêm cùng một micro hai lần
